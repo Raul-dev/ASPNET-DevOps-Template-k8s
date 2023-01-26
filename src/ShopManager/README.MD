@@ -1,4 +1,3 @@
-
 ## Start project localy
 for Windows
 ```
@@ -23,24 +22,21 @@ docker-compose -f docker-compose.elk.yml up
 https://localhost
 
 https://localhost/ref
-
-
-## GitLab CI/CD compose files in folder ./deployment/gitlabci/
-Build machine: https://docker.neva.loc as example
-
 ## reset chrome cahe
 ```
 chrome://net-internals/#hsts
 chrome:restart
 ```
-
-Check Self signet certificate for domain
-```
-cd deployment/TestSSL
-docker-compose --env-file ./.env_linux -f docker-compose.sslnginx.yml up
-```
-
 ## Build frontend only
 ```
-docker-compose build --force-rm --no-cache --progress plain frontend
+rm -rf nevashop
+cd nevashop
+git clone --branch Feature_ADMIN git@gitlab.neva.loc:shop/nevashop.git
+docker-compose build --force-rm --no-cache --progress plain ShopManager
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+git reset HEAD~ --hard
+git checkout uat
+git pull
+
 ```

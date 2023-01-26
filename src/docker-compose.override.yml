@@ -1,0 +1,88 @@
+version: '3.4'
+
+services:
+  shopmanager:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${NS_ENV:-Development}
+      - ASPNETCORE_URLS=${NS_ASPNETCORE_URLS:-https://+:443;http://+:80}
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ASPNETCORE_PATHBASE=${NS_SHOPMANAGER_PATHBASE:-/}
+      - ConnectionStrings__DefaultConnection=Host=${NS_POSTGRES:-postgresdb};Port=5432;Database=nsshopmanager;Username=postgres;Password=${DB_PASSWORD:-postgres}
+      - ApiSettings__CatalogUrl=http://catalogapi
+      - ApiSettings__CatalogHost_EXTERNAL=http://host.docker.internal/catalog
+
+    ports:
+      - "80"
+      - "443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+      - ${NS_LOG_PATH:-./logs}:/logs 
+
+  catalogapi:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${NS_ENV:-Development}
+      - ASPNETCORE_URLS=${NS_ASPNETCORE_URLS:-https://+:443;http://+:80}
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ASPNETCORE_PATHBASE=${NS_CATALOGAPI_PATHBASE:-/}
+      - ConnectionStrings__DefaultConnection=Host=${NS_POSTGRES:-postgresdb};Port=5432;Database=nscatalogapi;Username=postgres;Password=${DB_PASSWORD:-postgres}
+
+    ports:
+      - "80"
+      - "443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+      - ${NS_LOG_PATH:-./logs}:/logs 
+
+  identityapi:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${NS_ENV:-Development}
+      - ASPNETCORE_URLS=${NS_ASPNETCORE_URLS:-https://+:443;http://+:80}
+      - ConnectionStrings__DefaultConnection=Host=${NS_POSTGRES:-postgresdb};Port=5432;Database=nsidentityapi;Username=postgres;Password=${DB_PASSWORD:-postgres}
+    ports:
+      - 7001:80
+      - "443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+      - ${NS_LOG_PATH:-./logs}:/logs 
+
+  
+  frontend:
+    environment:
+      - BACKEND_IDENTITY=${NS_IDENTITY_URL:-identityapi}
+      - BACKEND_CATALOG=${NS_CATALOG_URL:-catalogapi}
+      - BACKEND_ADMIN=shopmanager
+      - BACKEND_API=whoamiapi:8000
+      - BASE_URL=${NS_BASE_URL:-localhost}
+    ports:
+      - 80
+    volumes:  
+      - ${NS_LOG_PATH:-./logs}/nginx:/var/logs
+    depends_on:
+      - shopmanager
+      - identityapi
+      - catalogapi
+
+  frontendssl:
+    depends_on:
+      - frontend
+      - identityapi
+      - catalogapi  
+    environment:
+      - BASE_URL=${NS_BASE_URL:-localhost}
+      - BACKEND_URL=frontend
+    ports:
+      - 80:80
+      - 443:443
+    volumes:  
+      - ${NS_LOG_PATH:-./logs}/nginx:/var/logs
+      - ${NS_CERTS:-./srv/nginx/certs}:/etc/nginx/certs
+      - ./srv/nginx/proxy.conf:/etc/nginx/proxy.conf
+
+
+  whoamiapi:
+    expose:
+      - "8000"
+ 
